@@ -1,34 +1,20 @@
 class TestsController < ApplicationController
 
-   def index
-     cluster = Cassandra.cluster
-     session = cluster.connect("cassandra_keyspace")
+  def index
+    raise BadRequest, "Invalid request : #{e.message}"
+    begin
+      cluster = Cassandra.cluster
+      session = cluster.connect("cassandra_keyspace")
+      next_page = !params["next"].blank? ? params["next"].split("q").map{ |x| x.to_i }.pack("c*") : nil
+      page_size = params["page_size"].present? ? params["page_size"] : nil
+      result  = session.execute("SELECT * FROM volume_usage", page_size: page_size, paging_state: next_page)
+      paging_links = get_paging_links(params, result.paging_state)
 
-     puts "params : #{params.inspect}"
-
-   
-     if(params["next"].nil? and params["prev"].nil?)
-    	# first call, first page.
-	first_page = true
-        result  = session.execute("SELECT * FROM volume_usage WHERE id > 125 ALLOW FILTERING", page_size: 10, paging_state: nil)
-        pages = {:next => ""} #add last
-     else
-	result  = session.execute("SELECT * FROM volume_usage WHERE id > 125 ALLOW FILTERING", page_size: 10, paging_state: params["next"])
-	pages = {:prev => "", :next => ""} #add last
-     end
-
-     if(!result.last_page? and !result.paging_state.blank?)
-   	next_paging_state = result.paging_state
-	prev_paging_state = nil
-     end
-     url_without_params = request.url.split('?').first
-     
-     #new_params = request.query_parameters.merge({ next: next_paging_state.inspect, prev: prev_paging_state })
-    
-     response = {"data" => result}
-     headers['Next'] = "#{url_without_params}?next=#{next_paging_state.inspect}&prev=#{prev_paging_state.inspect}"
-     json_response(response)     
-
-   end
-
+      response = { "data" => result }
+      response.merge!(paging_links)
+      json_response(response)
+    rescue Exception => e
+        raise BadRequest, "Invalid request : #{e.message}"
+    end
+  end
 end
