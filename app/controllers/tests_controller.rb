@@ -1,7 +1,6 @@
 class TestsController < ApplicationController
 
   def index
-    raise BadRequest, "Invalid request : #{e.message}"
     begin
       cluster = Cassandra.cluster
       session = cluster.connect("cassandra_keyspace")
@@ -14,7 +13,7 @@ class TestsController < ApplicationController
       response.merge!(paging_links)
       json_response(response)
     rescue Exception => e
-        raise BadRequest, "Invalid request : #{e.message}"
+        raise BadRequestError, "Invalid request : #{e.message}"
     end
   end
 end
